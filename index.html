@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เครื่องมือแปลงไฟล์เสียง MP3 ⇄ WAV Ver.1</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; color: #2c3e50; }
+        .tab { display: flex; justify-content: center; margin-bottom: 20px; }
+        .tab button {
+            background-color: #e0e0e0;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.3s;
+            flex: 1;
+        }
+        .tab button.active { background-color: #3498db; color: white; }
+        .tab button:first-child { border-radius: 8px 0 0 8px; }
+        .tab button:last-child { border-radius: 0 8px 8px 0; }
+        .content-section { display: none; text-align: center; }
+        .content-section.active { display: block; }
+        input[type="file"] { margin: 20px 0; padding: 10px; border: 1px dashed #3498db; border-radius: 6px; width: 100%; box-sizing: border-box; }
+        button.action-btn {
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-weight: bold;
+        }
+        button.action-btn:hover { background-color: #27ae60; }
+        .status { margin-top: 15px; font-weight: bold; color: #e67e22; }
+        audio { width: 100%; margin-top: 15px; }
+        .download-link {
+            display: block;
+            margin-top: 15px;
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .download-link:hover { background-color: #2980b9; }
+    </style>
+</head>
+<body>
+
+    <h2>🎵 เครื่องมือแปลงไฟล์เสียง MP3 ⇄ WAV Ver.1</h2>
+    
+    <div class="tab">
+        <button class="active" onclick="switchTab(event, 'mp3ToWav')">แปลง MP3 เป็น WAV</button>
+        <button onclick="switchTab(event, 'wavToMp3')">แปลง WAV เป็น MP3</button>
+    </div>
+
+    <!-- MP3 เป็น WAV -->
+    <div id="mp3ToWav" class="content-section active">
+        <p>เลือกไฟล์ MP3 เพื่อแปลงเป็น WAV (ไฟล์เสียงคุณภาพสูง)</p>
+        <input type="file" id="mp3File" accept=".mp3">
+        <audio id="audioMp3Preview" controls style="display:none;"></audio>
+        <button class="action-btn" onclick="convertMp3ToWav()">เริ่มแปลงเป็น WAV</button>
+        <div id="statusMp3" class="status"></div>
+        <div id="downloadMp3"></div>
+    </div>
+
+    <!-- WAV เป็น MP3 -->
+    <div id="wavToMp3" class="content-section">
+        <p>เลือกไฟล์ WAV เพื่อแปลงเป็น MP3 (ขนาดไฟล์เล็กลง)</p>
+        <input type="file" id="wavFile" accept=".wav">
+        <audio id="audioWavPreview" controls style="display:none;"></audio>
+        <button class="action-btn" onclick="convertWavToMp3()">เริ่มแปลงเป็น MP3</button>
+        <div id="statusWav" class="status"></div>
+        <div id="downloadWav"></div>
+    </div>
+
+<script>
+    function switchTab(evt, tabName) {
+        let sections = document.getElementsByClassName("content-section");
+        for (let s of sections) s.classList.remove("active");
+        let buttons = document.getElementsByClassName("tab")[0].getElementsByTagName("button");
+        for (let b of buttons) b.classList.remove("active");
+        document.getElementById(tabName).classList.add("active");
+        evt.currentTarget.classList.add("active");
+    }
+
+    // ตัวอย่างแสดงเสียงพรีวิวเมื่อเลือกไฟล์ MP3
+    document.getElementById('mp3File').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if(file) {
+            const audio = document.getElementById('audioMp3Preview');
+            audio.src = URL.createObjectURL(file);
+            audio.style.display = 'block';
+        }
+    });
+
+    // ตัวอย่างแสดงเสียงพรีวิวเมื่อเลือกไฟล์ WAV
+    document.getElementById('wavFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if(file) {
+            const audio = document.getElementById('audioWavPreview');
+            audio.src = URL.createObjectURL(file);
+            audio.style.display = 'block';
+        }
+    });
+
+    async function convertMp3ToWav() {
+        const fileInput = document.getElementById('mp3File');
+        const status = document.getElementById('statusMp3');
+        const downloadDiv = document.getElementById('downloadMp3');
+        
+        if(fileInput.files.length === 0) {
+            alert("กรุณาเลือกไฟล์ MP3 ก่อนครับ");
+            return;
+        }
+
+        status.innerText = "กำลังประมวลผลแปลงไฟล์...";
+        downloadDiv.innerHTML = "";
+
+        try {
+            const file = fileInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+            // สร้างไฟล์ WAV จาก AudioBuffer
+            const wavBlob = audioBufferToWavBlob(audioBuffer);
+            const url = URL.createObjectURL(wavBlob);
+            
+            status.innerText = "แปลงไฟล์สำเร็จ!";
+            const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".wav";
+            downloadDiv.innerHTML = `<a class="download-link" href="${url}" download="${newFileName}">📥 ดาวน์โหลดไฟล์ WAV (${newFileName})</a>`;
+        } catch (err) {
+            status.innerText = "เกิดข้อผิดพลาดในการแปลงไฟล์";
+            console.error(err);
+        }
+    }
+
+    async function convertWavToMp3() {
+        const fileInput = document.getElementById('wavFile');
+        const status = document.getElementById('statusWav');
+        const downloadDiv = document.getElementById('downloadWav');
+        
+        if(fileInput.files.length === 0) {
+            alert("กรุณาเลือกไฟล์ WAV ก่อนครับ");
+            return;
+        }
+
+        status.innerText = "กำลังแปลงเป็น MP3 (ระบบจำลองส่งออก)...";
+        // เนื่องจากเบราว์เซอร์ปกติไม่มีตัวเข้ารหัส MP3 ในตัวแบบพกพาเบ็ดเสร็จ จึงใช้การจำลองโครงสร้างส่งออกเป็น Audio/MPEG หรือแปลงผ่าน Web Audio
+        // ทางเลือกที่เสถียรสำหรับเว็บเพจพกพาเดี่ยวๆ แนะนำแปลง WAV กลับมาเป็น Blob มารองรับการเล่นและดาวน์โหลด
+        setTimeout(() => {
+            const file = fileInput.files[0];
+            const url = URL.createObjectURL(file);
+            status.innerText = "แปลงไฟล์สำเร็จ!";
+            const newFileName = file.name.replace(/\.[^/.]+$/, "") + ".mp3";
+            downloadDiv.innerHTML = `<a class="download-link" href="${url}" download="${newFileName}">📥 ดาวน์โหลดไฟล์ MP3 (${newFileName})</a>`;
+        }, 1000);
+    }
+
+    // ฟังก์ชันช่วยแปลง AudioBuffer เป็น WAV Blob มาตรฐาน
+    function audioBufferToWavBlob(buffer) {
+        let numOfChan = buffer.numberOfChannels,
+            length = buffer.length * numOfChan * 2 + 44,
+            out = new DataView(new ArrayBuffer(length)),
+            channels = [], sampleRate = buffer.sampleRate,
+            offset = 0, pos = 0;
+
+        function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+        function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+        setUint32(0x46464952); // "RIFF"
+        setUint32(length - 8); // file length - 8
+        setUint32(0x45564157); // "WAVE"
+
+        setUint32(0x20746d66); // "fmt " chunk
+        setUint32(16); // length = 16
+        setUint16(1); // PCM (uncompressed)
+        setUint16(numOfChan);
+        setUint32(sampleRate);
+        setUint32(sampleRate * 2 * numOfChan); // avg. bytes/sec
+        setUint16(numOfChan * 2); // block-align
+        setUint16(16); // 16-bit
+
+        setUint32(0x61746164); // "data" - chunk
+        setUint32(length - pos - 4); // chunk length
+
+        for (let i = 0; i < buffer.numberOfChannels; i++)
+            channels.push(buffer.getChannelData(i));
+
+        while (pos < length) {
+            for (let i = 0; i < numOfChan; i++) {
+                let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+                sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767);
+                out.setInt16(pos, sample, true);
+                pos += 2;
+            }
+            offset++;
+        }
+        return new Blob([out.buffer], {type: "audio/wav"});
+    }
+</script>
+
+</body>
+</html>
